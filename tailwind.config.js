@@ -57,9 +57,29 @@ export default {
           "0%, 100%": { opacity: "1" },
           "50%": { opacity: "0.6" },
         },
+        shimmer: {
+          "0%": { transform: "translateX(-120%)" },
+          "100%": { transform: "translateX(120%)" },
+        },
+        "segment-wave": {
+          "0%, 100%": { opacity: "0.55", transform: "scaleY(0.6)" },
+          "50%": { opacity: "1", transform: "scaleY(1)" },
+        },
+        "flow-x": {
+          "0%": { backgroundPosition: "0% 50%" },
+          "100%": { backgroundPosition: "200% 50%" },
+        },
+        "edge-pulse": {
+          "0%, 100%": { opacity: "0.45", transform: "scale(0.8)" },
+          "50%": { opacity: "1", transform: "scale(1.2)" },
+        },
       },
       animation: {
         "pulse-glow": "pulse-glow 1.8s ease-in-out infinite",
+        shimmer: "shimmer 2.2s ease-in-out infinite",
+        "segment-wave": "segment-wave 1.4s ease-in-out infinite",
+        "flow-x": "flow-x 3s linear infinite",
+        "edge-pulse": "edge-pulse 1.4s ease-in-out infinite",
       },
     },
   },
