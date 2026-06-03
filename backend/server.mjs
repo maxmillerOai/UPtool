@@ -1,7 +1,7 @@
 import http from "node:http";
-import { mkdir, writeFile } from "node:fs/promises";
-import { createWriteStream } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { mkdir, readFile } from "node:fs/promises";
+import { createWriteStream, existsSync, statSync } from "node:fs";
+import { dirname, extname, join, normalize, resolve } from "node:path";
 import { Readable } from "node:stream";
 
 import { loadConfig, processVideoJob } from "./tool-core.mjs";
@@ -10,6 +10,9 @@ import { loadSettings, saveSettings } from "./app-settings.mjs";
 const ROOT = dirname(new URL(import.meta.url).pathname).replace(/^\/([A-Za-z]:)/, "$1");
 const PORT = Number(process.env.PORT || 8792);
 const UPLOADS_DIR = resolve(ROOT, "incoming");
+// Directory of the built React app. Set HPB_STATIC_DIR when packaged (Electron),
+// otherwise default to the sibling `dist/` produced by `npm run build`.
+const STATIC_DIR = process.env.HPB_STATIC_DIR || resolve(ROOT, "..", "dist");
 const LIVE_JOBS = new Map();
 
 function send(res, status, body, headers = {}) {
@@ -19,6 +22,62 @@ function send(res, status, body, headers = {}) {
 
 function json(res, status, body) {
   send(res, status, JSON.stringify(body), { "Content-Type": "application/json; charset=utf-8" });
+}
+
+const MIME_TYPES = {
+  ".html": "text/html; charset=utf-8",
+  ".js": "text/javascript; charset=utf-8",
+  ".mjs": "text/javascript; charset=utf-8",
+  ".css": "text/css; charset=utf-8",
+  ".json": "application/json; charset=utf-8",
+  ".svg": "image/svg+xml",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".gif": "image/gif",
+  ".webp": "image/webp",
+  ".ico": "image/x-icon",
+  ".woff": "font/woff",
+  ".woff2": "font/woff2",
+  ".ttf": "font/ttf",
+  ".map": "application/json; charset=utf-8",
+};
+
+function mimeFor(filePath) {
+  return MIME_TYPES[extname(filePath).toLowerCase()] || "application/octet-stream";
+}
+
+const NO_BUILD_HTML = `<!doctype html><html><head><meta charset="utf-8">
+<title>Host Post Builder</title></head><body style="font-family:sans-serif;background:#080c14;color:#e8f7ff;padding:40px">
+<h2>Frontend build not found</h2>
+<p>Run <code>npm run build</code> in the project root to generate <code>dist/</code>,
+then restart this server. The JSON API is available at <code>/api/process</code>,
+<code>/api/progress</code>, and <code>/api/settings</code>.</p>
+</body></html>`;
+
+/** Serves the built SPA with a single-page-app fallback to index.html. */
+async function serveStatic(req, res) {
+  const urlPath = decodeURIComponent(new URL(req.url, "http://localhost").pathname);
+  let relPath = urlPath === "/" ? "index.html" : urlPath.replace(/^\/+/, "");
+  let filePath = normalize(join(STATIC_DIR, relPath));
+
+  // Prevent path traversal outside the static root.
+  if (!filePath.startsWith(STATIC_DIR)) {
+    filePath = join(STATIC_DIR, "index.html");
+  }
+  if (!existsSync(filePath) || statSync(filePath).isDirectory()) {
+    filePath = join(STATIC_DIR, "index.html"); // SPA fallback
+  }
+  if (!existsSync(filePath)) {
+    send(res, 200, NO_BUILD_HTML, { "Content-Type": "text/html; charset=utf-8" });
+    return;
+  }
+  try {
+    const body = await readFile(filePath);
+    send(res, 200, body, { "Content-Type": mimeFor(filePath) });
+  } catch (error) {
+    send(res, 500, String(error?.message || error));
+  }
 }
 
 async function requestFormData(req) {
@@ -36,9 +95,9 @@ async function saveUploadedFile(file) {
   const safeName = file.name.replace(/[^\w.\- ]+/g, "_");
   const dest = join(UPLOADS_DIR, `${Date.now()}_${safeName}`);
   const stream = createWriteStream(dest);
-  await new Promise((resolve, reject) => {
+  await new Promise((resolvePromise, reject) => {
     Readable.fromWeb(file.stream()).pipe(stream);
-    stream.on("finish", resolve);
+    stream.on("finish", resolvePromise);
     stream.on("error", reject);
   });
   return dest;
@@ -153,26 +212,7 @@ async function readJsonBody(req) {
   return text ? JSON.parse(text) : {};
 }
 
-
-const INDEX_HTML = `<!doctype html>
-<html lang="en" data-theme="dark">
-<head>
-  <meta charset="utf-8">
-  <title>Host Post Builder (legacy UI)</title>
-</head>
-<body>
-  <p>The bundled legacy UI has been replaced by the React frontend.</p>
-  <p>This server now exposes the JSON API at <code>/api/process</code>,
-     <code>/api/progress</code> and <code>/api/settings</code>.</p>
-</body>
-</html>`;
-
-
 const server = http.createServer(async (req, res) => {
-  if (req.method === "GET" && new URL(req.url, "http://localhost").pathname === "/") {
-    send(res, 200, INDEX_HTML, { "Content-Type": "text/html; charset=utf-8" });
-    return;
-  }
   if (req.method === "POST" && req.url === "/api/process") {
     await handleProcess(req, res);
     return;
@@ -194,6 +234,10 @@ const server = http.createServer(async (req, res) => {
     } catch (error) {
       json(res, 500, { ok: false, error: String(error?.message || error) });
     }
+    return;
+  }
+  if (req.method === "GET" || req.method === "HEAD") {
+    await serveStatic(req, res);
     return;
   }
   send(res, 404, "Not found");
