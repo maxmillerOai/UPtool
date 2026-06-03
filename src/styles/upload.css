@@ -1,0 +1,268 @@
+/* ── Holographic drop zone ── */
+.dropzone {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 360px;
+  padding: var(--space-7) var(--space-5);
+  border-radius: var(--radius-xl);
+  text-align: center;
+  cursor: pointer;
+  overflow: hidden;
+  background: radial-gradient(
+    ellipse at 50% 40%,
+    hsl(var(--c-primary) / 0.08),
+    transparent 65%
+  );
+  border: 1.5px dashed hsl(var(--c-primary) / 0.4);
+  transition: border-color 0.3s, background 0.3s, transform 0.2s;
+}
+.dropzone:hover {
+  border-color: hsl(var(--c-primary) / 0.7);
+}
+.dropzone.drag {
+  border-color: hsl(var(--c-tertiary));
+  border-style: solid;
+  background: radial-gradient(ellipse at 50% 40%, hsl(var(--c-tertiary) / 0.18), transparent 65%);
+  transform: scale(1.005);
+}
+.dropzone .rings {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+.dropzone .erg {
+  position: absolute;
+  border-radius: 50%;
+  border: 1px solid hsl(var(--c-primary) / 0.3);
+}
+.dropzone .e1 {
+  width: 180px;
+  height: 180px;
+  animation: spin 18s linear infinite;
+  border-top-color: hsl(var(--c-primary));
+  border-right-color: transparent;
+}
+.dropzone .e2 {
+  width: 260px;
+  height: 260px;
+  animation: spin-rev 24s linear infinite;
+  border-bottom-color: hsl(var(--c-tertiary) / 0.7);
+  border-left-color: transparent;
+}
+.dropzone .e3 {
+  width: 340px;
+  height: 340px;
+  animation: spin 30s linear infinite;
+  border-top-color: hsl(var(--c-secondary) / 0.5);
+  border-right-color: transparent;
+}
+.dropzone .core-icon {
+  position: relative;
+  z-index: 2;
+  width: 96px;
+  height: 96px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  margin: 0 auto var(--space-4);
+  color: hsl(var(--c-primary));
+  background: radial-gradient(circle at 40% 35%, hsl(var(--c-primary) / 0.3), transparent 70%);
+  border: 1px solid hsl(var(--c-primary) / 0.5);
+  box-shadow: 0 0 40px hsl(var(--c-primary) / 0.5), inset 0 0 20px hsl(var(--c-primary) / 0.2);
+  animation: float-y 5s var(--ease-in-out) infinite;
+}
+.dropzone .core-icon::after {
+  content: '';
+  position: absolute;
+  inset: -10px;
+  border-radius: 50%;
+  border: 1px solid hsl(var(--c-primary) / 0.4);
+  animation: pulse-ring 2.6s ease-out infinite;
+}
+.dropzone .dz-title {
+  position: relative;
+  z-index: 2;
+  font-family: var(--font-display);
+  font-size: clamp(20px, 2.6vw, 30px);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.dropzone .dz-sub {
+  position: relative;
+  z-index: 2;
+  color: var(--ink-dim);
+  margin-top: 8px;
+  max-width: 460px;
+}
+.dropzone .dz-actions {
+  position: relative;
+  z-index: 2;
+  margin-top: var(--space-5);
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.host-select-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+/* queue */
+.queue-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+  flex-wrap: wrap;
+}
+.queue-head .stat {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--ink-dim);
+}
+
+.qitem {
+  position: relative;
+  display: grid;
+  grid-template-columns: 56px 1fr auto;
+  gap: var(--space-4);
+  align-items: center;
+  padding: var(--space-4);
+  border-radius: var(--radius);
+  border: 1px solid hsl(var(--line) / 0.1);
+  background: hsl(var(--bg-2) / 0.45);
+  overflow: hidden;
+}
+.qitem .thumb {
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: hsl(var(--bg-2));
+  border: 1px solid hsl(var(--line) / 0.12);
+  color: hsl(var(--c-primary));
+  flex: none;
+  position: relative;
+}
+.qitem .thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.qitem .thumb .ext {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+}
+.qitem .mid {
+  min-width: 0;
+}
+.qitem .fname {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.qitem .fmeta {
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  align-items: center;
+  margin-top: 4px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-faint);
+}
+.qitem .progress-line {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: 8px;
+}
+.qitem .pct {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: hsl(var(--c-primary));
+  min-width: 42px;
+  text-align: right;
+}
+.qitem .actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.qitem.completed {
+  border-color: hsl(var(--ok) / 0.3);
+}
+.qitem.failed {
+  border-color: hsl(var(--err) / 0.35);
+}
+.qitem .result-url {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: 8px;
+  padding: 6px 10px;
+  border-radius: 9px;
+  background: hsl(var(--bg-0) / 0.6);
+  border: 1px solid hsl(var(--ok) / 0.25);
+}
+.qitem .result-url a {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: hsl(var(--ok));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+}
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* telemetry strip */
+.telemetry {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-4);
+}
+.telemetry .cell {
+  padding: var(--space-4);
+  border-radius: var(--radius);
+  border: 1px solid hsl(var(--line) / 0.1);
+  background: hsl(var(--bg-2) / 0.4);
+}
+.telemetry .cell .v {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 800;
+  color: hsl(var(--c-primary));
+}
+@media (max-width: 720px) {
+  .telemetry {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .qitem {
+    grid-template-columns: 48px 1fr;
+  }
+  .qitem .actions {
+    grid-column: 1 / -1;
+    justify-content: flex-end;
+  }
+}

@@ -1,0 +1,290 @@
+/* ──────────────────────────────────────────────────────────────────────────
+   VISUAL EFFECTS LIBRARY
+   Glassmorphism, neon, holographic surfaces, scanning, animated borders,
+   data-streams, energy pulses, light trails.
+   ────────────────────────────────────────────────────────────────────────── */
+
+/* Glass / holographic card surface */
+.glass {
+  position: relative;
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur)) saturate(140%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(140%);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-glow);
+  overflow: hidden;
+}
+
+/* Subtle holographic sheen that sweeps across a surface */
+.holo::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    115deg,
+    transparent 30%,
+    hsl(var(--c-primary) / 0.08) 45%,
+    hsl(var(--c-tertiary) / 0.1) 52%,
+    transparent 68%
+  );
+  background-size: 250% 250%;
+  animation: holo-sweep 9s var(--ease-in-out) infinite;
+  pointer-events: none;
+  mix-blend-mode: screen;
+}
+
+@keyframes holo-sweep {
+  0% {
+    background-position: 150% 0;
+  }
+  100% {
+    background-position: -50% 0;
+  }
+}
+
+/* top hairline that glows */
+.edge-glow::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 10%;
+  right: 10%;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    hsl(var(--c-primary) / 0.9),
+    transparent
+  );
+  filter: drop-shadow(0 0 6px hsl(var(--c-primary) / 0.8));
+  pointer-events: none;
+}
+
+/* Animated conic border ring */
+.ring-border {
+  position: relative;
+}
+.ring-border::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: conic-gradient(
+    from var(--angle, 0deg),
+    transparent 0%,
+    hsl(var(--c-primary) / 0.9) 12%,
+    hsl(var(--c-tertiary) / 0.7) 25%,
+    transparent 40%,
+    transparent 100%
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: spin-angle 6s linear infinite;
+  pointer-events: none;
+}
+
+@property --angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes spin-angle {
+  to {
+    --angle: 360deg;
+  }
+}
+
+/* Neon text */
+.neon {
+  color: hsl(var(--c-primary));
+  text-shadow: 0 0 8px hsl(var(--c-primary) / 0.7),
+    0 0 22px hsl(var(--c-primary) / 0.4);
+}
+.neon-2 {
+  color: hsl(var(--c-tertiary));
+  text-shadow: 0 0 8px hsl(var(--c-tertiary) / 0.7);
+}
+
+/* Scanline overlay (applied to whole app via .scanlines on a fixed layer) */
+.scanlines::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    hsl(0 0% 100% / 0.025) 0px,
+    hsl(0 0% 100% / 0.025) 1px,
+    transparent 2px,
+    transparent 4px
+  );
+  mix-blend-mode: overlay;
+  pointer-events: none;
+  z-index: 9000;
+  animation: scan-drift 12s linear infinite;
+}
+
+@keyframes scan-drift {
+  to {
+    background-position: 0 200px;
+  }
+}
+
+/* Single sweeping scan beam */
+.scan-beam {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  border-radius: inherit;
+}
+.scan-beam::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 40%;
+  top: -40%;
+  background: linear-gradient(
+    180deg,
+    transparent,
+    hsl(var(--c-primary) / 0.12),
+    transparent
+  );
+  animation: scan-vert 4.5s var(--ease-in-out) infinite;
+}
+
+@keyframes scan-vert {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(360%);
+  }
+}
+
+/* Energy pulse ring */
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.85);
+    opacity: 0.85;
+  }
+  100% {
+    transform: scale(1.8);
+    opacity: 0;
+  }
+}
+
+/* Floating motion */
+@keyframes float-y {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-7px);
+  }
+}
+.float {
+  animation: float-y 6s var(--ease-in-out) infinite;
+}
+
+/* Data stream vertical ticker */
+@keyframes data-stream {
+  from {
+    transform: translateY(-100%);
+  }
+  to {
+    transform: translateY(100%);
+  }
+}
+
+/* Blink / status */
+@keyframes blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
+.blink {
+  animation: blink 1.6s steps(2, start) infinite;
+}
+
+/* Shimmer for loaders */
+@keyframes shimmer {
+  to {
+    background-position: 200% 0;
+  }
+}
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    hsl(var(--panel-2) / 0.4) 25%,
+    hsl(var(--c-primary) / 0.18) 50%,
+    hsl(var(--panel-2) / 0.4) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.6s linear infinite;
+}
+
+/* Gradient text */
+.grad-text {
+  background: linear-gradient(
+    100deg,
+    hsl(var(--c-primary)),
+    hsl(var(--c-tertiary))
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Rotating slow */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes spin-rev {
+  to {
+    transform: rotate(-360deg);
+  }
+}
+
+.spin-ico {
+  animation: spin 1s linear infinite;
+}
+
+/* Radar sweep */
+@keyframes radar-sweep {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* count-up fade */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.rise-in {
+  animation: rise-in 0.5s var(--ease-out) both;
+}
+
+@keyframes grid-pan {
+  to {
+    background-position: 40px 40px, 40px 40px;
+  }
+}
