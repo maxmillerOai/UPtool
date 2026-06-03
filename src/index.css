@@ -1,0 +1,96 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 222 84% 5%;
+    --foreground: 210 40% 96%;
+    --card: 218 60% 11%;
+    --card-foreground: 210 40% 96%;
+    --primary: 199 100% 50%;
+    --primary-foreground: 222 84% 5%;
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 210 40% 96%;
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 217 33% 20%;
+    --accent-foreground: 210 40% 96%;
+    --border: 215 40% 22%;
+    --input: 215 40% 22%;
+    --ring: 199 100% 50%;
+  }
+
+  /* Light theme variant (toggled via .light on <html>) */
+  .light {
+    --background: 210 40% 96%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --primary: 199 100% 45%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 40% 90%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 210 40% 92%;
+    --muted-foreground: 215 16% 40%;
+    --accent: 210 40% 88%;
+    --accent-foreground: 222 47% 11%;
+    --border: 214 32% 80%;
+    --input: 214 32% 80%;
+    --ring: 199 100% 45%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+@layer utilities {
+  .cyber-gradient {
+    background:
+      radial-gradient(1200px 600px at 75% -10%, rgba(0, 191, 255, 0.08), transparent 60%),
+      radial-gradient(900px 500px at 10% 110%, rgba(0, 191, 255, 0.06), transparent 55%),
+      linear-gradient(160deg, #020817 0%, #050f20 50%, #071226 100%);
+  }
+
+  .light .cyber-gradient {
+    background: linear-gradient(160deg, #eef3fb 0%, #e6eefb 100%);
+  }
+
+  .glass-panel {
+    @apply rounded-lg border border-[rgba(0,191,255,0.18)] bg-[rgba(10,22,46,0.55)] backdrop-blur-md;
+    box-shadow:
+      0 0 0 1px rgba(0, 191, 255, 0.06),
+      0 10px 50px -12px rgba(0, 153, 255, 0.25);
+  }
+
+  .light .glass-panel {
+    @apply border-[rgba(0,153,255,0.18)] bg-white/80;
+    box-shadow: 0 10px 30px -16px rgba(0, 102, 204, 0.3);
+  }
+
+  .neon-text {
+    text-shadow: 0 0 12px rgba(0, 212, 255, 0.55);
+  }
+
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 191, 255, 0.35) transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: rgba(0, 191, 255, 0.3);
+    border-radius: 9999px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
