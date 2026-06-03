@@ -15,19 +15,36 @@ upload endpoints can be added without touching application code.
 
 ```bash
 npm install
-npm run dev      # start the dev server (http://localhost:5173)
+
+# Frontend only (simulated hosts, no real uploads):
+npm run dev          # http://localhost:5173
+
+# Frontend + backend plugin bridge together (real plugin hosts):
+npm run dev:all      # web on :5173, api on :8787 (Vite proxies /api → :8787)
 ```
 
 Other scripts:
 
 ```bash
 npm run build      # type-check + production build to dist/
+npm run server     # run only the backend plugin bridge (serves dist if built)
 npm run preview    # preview the production build
 npm run lint       # eslint
 npm run typecheck  # tsc --noEmit
+node server/e2e.mjs  # backend integration test (uses the bundled mock plugin)
 ```
 
 Requires Node 18+ (developed on Node 22).
+
+### Two kinds of hosts
+
+| Kind | Transport | Use for |
+| ---- | --------- | ------- |
+| **direct** | Browser → host endpoint (XHR) | Simple hosts with a public, CORS-friendly upload API. Also covers the built-in **simulated** demo hosts. |
+| **plugin** | Browser → **backend bridge** → host | Authenticated / multi-step host APIs (Rapidgator, Keep2Share, FileJoker, FileBoom, …) that must run server-side with credentials. |
+
+The four built-in hosts are `direct` + `simulated` so the UI is fully usable with
+zero setup. Real premium hosts are served as **plugin** hosts via the backend.
 
 ---
 
@@ -63,6 +80,13 @@ Requires Node 18+ (developed on Node 22).
 ## Architecture
 
 ```
+server/                     # 🛰️  backend plugin bridge (Node + Express)
+├── index.mjs               #     /api/hosts, /api/upload/:id, SSE progress, env creds
+├── pluginLoader.mjs        #     dynamically loads *.plugin.mjs from PLUGINS_DIR
+├── sample-plugins/         #     bundled mock plugin (works with zero setup)
+│   └── echo.plugin.mjs
+└── e2e.mjs                 #     self-contained integration test
+
 src/
 ├── config/                 # ⚙️  configuration layer (edit these, not core code)
 │   ├── hosts.config.ts     #     built-in host definitions  ← add real hosts here
@@ -159,6 +183,76 @@ available.
 
 ---
 
+## Backend plugin bridge (premium / authenticated hosts)
+
+Some hosts (e.g. **Rapidgator, Keep2Share, FileJoker, FileBoom**) use multi-step,
+**authenticated** upload APIs that cannot run in a browser (CORS + credential safety).
+For these, UPtool includes a small Node backend that runs server-side **plugins** and
+exposes them to the UI. The existing drop zone, queue, and progress UI drive it — only
+the transport changes.
+
+### Plugin contract
+
+A plugin is any file named `*.plugin.mjs` that exports:
+
+```js
+export const id = 'rapidgator';
+export const label = 'Rapidgator';
+export const credentialFields = ['token', 'username', 'password', 'twoFactorCode'];
+
+// filePath = absolute path to the file the bridge saved to a temp dir
+// credentials = merged env + UI credentials for this host
+// onProgress(p) = report progress; p may be {loaded,total}, a fraction, or a percent
+export async function upload({ filePath, credentials, onProgress }) {
+  // ...do the real upload...
+  return { host: id, link: 'https://.../file', plainText: 'https://.../file', raw };
+}
+
+export default { id, label, credentialFields, upload };
+```
+
+This is exactly the shape of the provided plugins (a thin `*.plugin.mjs` wrapper that
+delegates to an `*-api-adapter.mjs`). To use them:
+
+1. Place your plugin folder somewhere on the server and point the bridge at it:
+   ```bash
+   PLUGINS_DIR=/abs/path/to/plugins/filehosts npm run server
+   ```
+   (or set `PLUGINS_DIR` in `.env`; see `.env.example`). If unset, the bundled
+   **mock** plugin (`echo`) is used so the bridge is testable with zero setup.
+2. Start the UI with `npm run dev:all` (dev) — plugin hosts are auto-discovered and
+   appear in **Hosts** tagged `PLUGIN`. In production, `npm run build` then
+   `npm run server` serves the built UI and the API from the same origin.
+
+### How it flows
+
+```
+Browser drop zone
+   │  multipart POST  /api/upload/:hostId   (file + credentials)
+   ▼
+Express bridge ── saves file to temp dir ── plugin.upload({ filePath, credentials, onProgress })
+   │                                                   │ onProgress
+   │  Server-Sent Events  /api/jobs/:jobId/stream  ◄───┘
+   ▼
+Browser updates the queue progress, then shows the returned link
+```
+
+### Credentials
+
+Each plugin host needs account credentials. Provide them either:
+
+- **Server env vars** (recommended) — keys follow `<HOSTID>_<FIELD>`, e.g.
+  `RAPIDGATOR_TOKEN`, `RAPIDGATOR_USERNAME`, `RAPIDGATOR_PASSWORD`,
+  `RAPIDGATOR_TWOFACTORCODE`, `RAPIDGATOR_FOLDERID`. See `.env.example`.
+- **In the UI** — open **Hosts → (plugin host) → Credentials**. These are stored in the
+  browser's `localStorage` and sent with each upload. Request-provided values override
+  env defaults.
+
+Secrets are never written to the repo, and the bridge redacts secret-looking fields from
+error messages.
+
+---
+
 ## Tech stack
 
 - **React 18** + **TypeScript** (strict)
@@ -167,6 +261,7 @@ available.
 - **Framer Motion** (animation)
 - **lucide-react** (icons)
 - Pure CSS design system (glassmorphism, neon, holographic surfaces, particles)
+- **Node + Express** backend plugin bridge (only needed for `plugin` hosts)
 
-No backend is required — uploads go directly from the browser to the configured host
-endpoints (CORS permitting).
+`direct`/`simulated` hosts need no backend. `plugin` hosts (authenticated premium
+hosts) are served by the Node bridge in `server/`.
