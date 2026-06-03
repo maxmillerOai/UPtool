@@ -3,7 +3,12 @@
 import { readFile } from 'node:fs/promises';
 import { writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+// Use the mock plugin for CI — real hosts need paid credentials.
+process.env.PLUGINS_DIR = join(__dirname, 'sample-plugins');
 
 await import('./index.mjs'); // starts the HTTP server (top-level listen)
 await new Promise((r) => setTimeout(r, 800));

@@ -11,8 +11,7 @@ import { loadPlugins } from './pluginLoader.mjs';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const PORT = Number(process.env.PORT ?? 8787);
-const PLUGINS_DIR =
-  process.env.PLUGINS_DIR ?? new URL('./sample-plugins', import.meta.url).pathname;
+const PLUGINS_DIR = process.env.PLUGINS_DIR ?? join(__dirname, 'plugins');
 const MAX_UPLOAD_BYTES = Number(process.env.MAX_UPLOAD_BYTES ?? 0) || Infinity;
 
 const app = express();
@@ -91,6 +90,11 @@ function resolveCredentials(hostId, requestCreds = {}) {
     folderId: 'FOLDERID',
     apiKey: 'APIKEY',
     accessToken: 'ACCESSTOKEN',
+    authToken: 'AUTHTOKEN',
+    recaptchaResponse: 'RECAPTCHARESPONSE',
+    parentId: 'PARENTID',
+    cookie: 'COOKIE',
+    email: 'EMAIL',
   };
   for (const [field, suffix] of Object.entries(map)) {
     const val = process.env[`${prefix}_${suffix}`];

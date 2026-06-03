@@ -216,10 +216,11 @@ delegates to an `*-api-adapter.mjs`). To use them:
 
 1. Place your plugin folder somewhere on the server and point the bridge at it:
    ```bash
-   PLUGINS_DIR=/abs/path/to/plugins/filehosts npm run server
+   npm run server   # default: server/plugins (Rapidgator, Keep2Share, FileBoom, FileJoker)
    ```
-   (or set `PLUGINS_DIR` in `.env`; see `.env.example`). If unset, the bundled
-   **mock** plugin (`echo`) is used so the bridge is testable with zero setup.
+   Override with `PLUGINS_DIR` in `.env` if using a custom folder (see `.env.example`).
+   For CI/tests without credentials, `server/e2e.mjs` uses the **mock** plugin in
+   `server/sample-plugins/`.
 2. Start the UI with `npm run dev:all` (dev) — plugin hosts are auto-discovered and
    appear in **Hosts** tagged `PLUGIN`. In production, `npm run build` then
    `npm run server` serves the built UI and the API from the same origin.

@@ -17,13 +17,18 @@ const DEFAULT_FIELDS = ['token', 'username', 'password', 'twoFactorCode', 'folde
 const SECRET_FIELDS = /token|password|secret|key|code/i;
 
 const FIELD_LABELS: Record<string, string> = {
-  token: 'API Token',
-  username: 'Username / Email',
+  token: 'API Token (Rapidgator)',
+  username: 'Username',
   password: 'Password',
+  email: 'Email (FileJoker)',
   twoFactorCode: '2FA Code (optional)',
   folderId: 'Folder ID (optional)',
+  parentId: 'Parent folder (optional, default /)',
   apiKey: 'API Key',
   accessToken: 'Access Token',
+  authToken: 'Auth Token (from login)',
+  recaptchaResponse: 'reCAPTCHA response (if required)',
+  cookie: 'Session cookie (FileJoker)',
 };
 
 export function CredentialsModal({ host, initial, onSave, onClose }: CredentialsModalProps) {
