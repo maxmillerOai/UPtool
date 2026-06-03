@@ -23,11 +23,12 @@ import {
   getProgress,
   getSettings,
   processJob,
+  processJobUpload,
   type AppSettings,
   type ProgressEvent,
 } from "@/lib/api";
 import { buildProgressTasks } from "@/lib/progress";
-import type { FileHost, ProgressTask } from "@/types";
+import type { FileHost, ProgressTask, QueueStatus, VideoQueueItem } from "@/types";
 
 /** Maps a UI file-host id to the backend's file-host key. */
 const BACKEND_FILE_HOST: Record<string, string> = {
@@ -44,12 +45,19 @@ function formatClock(totalSeconds: number): string {
   return `${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
 }
 
+function formatBytes(bytes: number): string {
+  if (bytes >= 1e9) return `${(bytes / 1e9).toFixed(2)} GB`;
+  if (bytes >= 1e6) return `${(bytes / 1e6).toFixed(1)} MB`;
+  return `${(bytes / 1e3).toFixed(0)} KB`;
+}
+
 export interface DashboardProps {
   isLight: boolean;
   onToggleTheme: (light: boolean) => void;
 }
 
 export function Dashboard({ isLight, onToggleTheme }: DashboardProps) {
+  const [queue, setQueue] = useState<VideoQueueItem[]>(videoQueue);
   const [selectedId, setSelectedId] = useState<string>("v3");
   const [title, setTitle] = useState<string>(defaultTitle);
   const [imageHost, setImageHost] = useState<string>("imagetwist");
@@ -62,14 +70,16 @@ export function Dashboard({ isLight, onToggleTheme }: DashboardProps) {
   const [overall, setOverall] = useState(initialOverall);
   const [isProcessing, setIsProcessing] = useState(false);
   const [generatedPost, setGeneratedPost] = useState<string | null>(null);
+  const [jobError, setJobError] = useState<string | null>(null);
 
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const pollRef = useRef<number | null>(null);
   const timerRef = useRef<number | null>(null);
   const startRef = useRef<number>(0);
 
   const selectedItem = useMemo(
-    () => videoQueue.find((v) => v.id === selectedId) ?? null,
-    [selectedId]
+    () => queue.find((v) => v.id === selectedId) ?? null,
+    [queue, selectedId]
   );
 
   const selectedFileHostKeys = useMemo(
@@ -79,6 +89,15 @@ export function Dashboard({ isLight, onToggleTheme }: DashboardProps) {
         .map((h) => BACKEND_FILE_HOST[h.id]),
     [hosts]
   );
+
+  const totals = useMemo(() => {
+    const uploaded = queue.filter((q) => q.file);
+    if (uploaded.length === 0) {
+      return { fileCount: queue.length, totalSize: queueTotals.totalSize };
+    }
+    const bytes = uploaded.reduce((sum, q) => sum + (q.file?.size ?? 0), 0);
+    return { fileCount: queue.length, totalSize: formatBytes(bytes) };
+  }, [queue]);
 
   // Probe the backend and hydrate saved settings (credentials, MTN config).
   useEffect(() => {
@@ -110,6 +129,14 @@ export function Dashboard({ isLight, onToggleTheme }: DashboardProps) {
 
   useEffect(() => () => stopTimers(), [stopTimers]);
 
+  const setItemStatus = useCallback((id: string, status: QueueStatus, newFilename?: string) => {
+    setQueue((prev) =>
+      prev.map((q) =>
+        q.id === id ? { ...q, status, newFilename: newFilename ?? q.newFilename } : q
+      )
+    );
+  }, []);
+
   const applyEvents = useCallback(
     (events: ProgressEvent[]) => {
       const { tasks: next, overallPercent } = buildProgressTasks(
@@ -135,14 +162,50 @@ export function Dashboard({ isLight, onToggleTheme }: DashboardProps) {
       prev.map((h) => (h.id === id ? { ...h, selected: !h.selected } : h))
     );
 
+  const addFiles = useCallback((files: FileList) => {
+    const incoming = Array.from(files);
+    if (incoming.length === 0) return;
+    setQueue((prev) => {
+      const base = prev.length;
+      const next = incoming.map<VideoQueueItem>((file, i) => ({
+        id: `up_${Date.now()}_${i}`,
+        index: base + i + 1,
+        originalFilename: file.name,
+        newFilename: "—",
+        size: formatBytes(file.size),
+        duration: "—",
+        status: "waiting",
+        file,
+      }));
+      return [...prev, ...next];
+    });
+    setSelectedId((prev) => prev);
+  }, []);
+
+  const handleAddFiles = useCallback(() => fileInputRef.current?.click(), []);
+  const handleRemove = useCallback(() => {
+    setQueue((prev) => prev.filter((q) => q.id !== selectedId));
+  }, [selectedId]);
+  const handleClear = useCallback(() => {
+    setQueue([]);
+    setGeneratedPost(null);
+  }, []);
+
+  const handleSelect = useCallback((id: string) => {
+    setSelectedId(id);
+    setGeneratedPost(null);
+    setJobError(null);
+  }, []);
+
   const handleGenerate = useCallback(async () => {
     if (isProcessing || !selectedItem) return;
-    const sourcePath = (selectedItem as { sourcePath?: string }).sourcePath ?? "";
-
+    setJobError(null);
     setIsProcessing(true);
     setGeneratedPost(null);
     startRef.current = Date.now();
     stopTimers();
+    setTasks(buildProgressTasks([], imageHost, selectedFileHostKeys).tasks);
+    setItemStatus(selectedItem.id, "uploading");
 
     const jobId = `job_${Date.now()}`;
     pollRef.current = window.setInterval(async () => {
@@ -161,22 +224,39 @@ export function Dashboard({ isLight, onToggleTheme }: DashboardProps) {
     }, 1000);
 
     try {
-      const res = await processJob({
-        sourcePath,
+      const common = {
         title,
         imageHost,
         fileHosts: selectedFileHostKeys,
         credentials: settings?.credentials,
         jobId,
-      });
+      };
+      const res = selectedItem.file
+        ? await processJobUpload({ video: selectedItem.file, ...common })
+        : await processJob({ sourcePath: selectedItem.sourcePath ?? "", ...common });
+
+      setBackendOnline(true);
       if (res.ok) {
-        setBackendOnline(true);
         if (res.progress) applyEvents(res.progress);
         setGeneratedPost(res.post ?? "");
+        const ext = selectedItem.originalFilename.match(/\.[^.]+$/)?.[0] ?? ".mp4";
+        setItemStatus(selectedItem.id, "done", res.job ? `${res.job.id}${ext}` : undefined);
+      } else {
+        setJobError(res.error ?? "Job failed.");
+        setItemStatus(selectedItem.id, "waiting");
       }
-    } catch {
-      // Backend offline or job failed; keep the current (mock) display intact.
-      setBackendOnline(false);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      // A 5xx with a message means the backend responded (online) but the job failed;
+      // a network error means it is unreachable.
+      if (/Failed to fetch|NetworkError|ECONNREFUSED/i.test(message)) {
+        setBackendOnline(false);
+        setJobError("Backend unreachable.");
+      } else {
+        setBackendOnline(true);
+        setJobError(message);
+      }
+      setItemStatus(selectedItem.id, "waiting");
     } finally {
       stopTimers();
       setIsProcessing(false);
@@ -187,6 +267,7 @@ export function Dashboard({ isLight, onToggleTheme }: DashboardProps) {
     isProcessing,
     selectedFileHostKeys,
     selectedItem,
+    setItemStatus,
     settings,
     stopTimers,
     title,
@@ -212,6 +293,18 @@ export function Dashboard({ isLight, onToggleTheme }: DashboardProps) {
 
   return (
     <div className="flex h-screen flex-col overflow-hidden">
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="video/*"
+        multiple
+        className="hidden"
+        onChange={(e) => {
+          if (e.target.files) addFiles(e.target.files);
+          e.target.value = "";
+        }}
+      />
+
       <TopToolbar
         isLight={isLight}
         onToggleTheme={onToggleTheme}
@@ -222,15 +315,18 @@ export function Dashboard({ isLight, onToggleTheme }: DashboardProps) {
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-auto p-4 lg:grid-cols-[1fr_360px] xl:grid-cols-[1fr_400px]">
         <main className="scrollbar-thin min-w-0 space-y-4 overflow-auto pr-1">
           <VideoQueueTable
-            items={videoQueue}
+            items={queue}
             selectedId={selectedId}
-            onSelect={setSelectedId}
-            fileCount={queueTotals.fileCount}
+            onSelect={handleSelect}
+            fileCount={totals.fileCount}
           />
 
           <QueueActions
-            fileCount={queueTotals.fileCount}
-            totalSize={queueTotals.totalSize}
+            fileCount={totals.fileCount}
+            totalSize={totals.totalSize}
+            onAddFiles={handleAddFiles}
+            onRemove={handleRemove}
+            onClear={handleClear}
           />
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -263,20 +359,26 @@ export function Dashboard({ isLight, onToggleTheme }: DashboardProps) {
             }
           />
           <span className="text-foreground/80">
-            {isProcessing ? "Processing…" : "Ready."}
+            {isProcessing ? "Processing…" : jobError ? "Error" : "Ready."}
           </span>
-          <span
-            className={
-              backendOnline
-                ? "ml-2 text-emerald-400/80"
-                : "ml-2 text-muted-foreground/70"
-            }
-          >
-            {backendOnline ? "Backend connected" : "Backend offline (mock data)"}
-          </span>
+          {jobError ? (
+            <span className="ml-2 max-w-[40ch] truncate text-red-400/90" title={jobError}>
+              {jobError}
+            </span>
+          ) : (
+            <span
+              className={
+                backendOnline
+                  ? "ml-2 text-emerald-400/80"
+                  : "ml-2 text-muted-foreground/70"
+              }
+            >
+              {backendOnline ? "Backend connected" : "Backend offline (mock data)"}
+            </span>
+          )}
         </span>
         <span className="flex items-center gap-4">
-          <span>{systemStatus.filesInQueue} files in queue</span>
+          <span>{totals.fileCount} files in queue</span>
           <span className="text-[rgba(0,191,255,0.3)]">|</span>
           <span>
             Free space:{" "}

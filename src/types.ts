@@ -10,6 +10,10 @@ export interface VideoQueueItem {
   status: QueueStatus;
   /** Full preview post body, shown when the row is selected. */
   preview?: PostPreviewData;
+  /** Browser File for items added via "Add Files" (multipart upload path). */
+  file?: File;
+  /** Absolute path for files already present on the backend host. */
+  sourcePath?: string;
 }
 
 export interface PostPreviewData {
