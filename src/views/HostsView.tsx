@@ -9,11 +9,15 @@ import {
   ShieldCheck,
   Boxes,
   Cpu,
+  KeyRound,
+  Plug,
+  PlugZap,
 } from 'lucide-react';
 import { useStore, useHosts, computeStats } from '@/store/useStore';
 import { Card } from '@/components/ui/Card';
 import { Toggle } from '@/components/ui/Toggle';
 import { HostForm } from '@/components/hosts/HostForm';
+import { CredentialsModal } from '@/components/hosts/CredentialsModal';
 import { emptyHost } from '@/lib/hostRegistry';
 import { uid } from '@/lib/id';
 import { formatBytes } from '@/lib/format';
@@ -25,9 +29,13 @@ export function HostsView() {
   const upsertHost = useStore((s) => s.upsertHost);
   const deleteHost = useStore((s) => s.deleteHost);
   const toggleHost = useStore((s) => s.toggleHost);
+  const backendOnline = useStore((s) => s.backendOnline);
+  const credentials = useStore((s) => s.credentials);
+  const setCredentials = useStore((s) => s.setCredentials);
   const stats = computeStats(uploads);
 
   const [editing, setEditing] = useState<HostConfig | null>(null);
+  const [credHost, setCredHost] = useState<HostConfig | null>(null);
 
   return (
     <div className="view">
@@ -44,16 +52,19 @@ export function HostsView() {
       </div>
 
       <Card className="pad" holo={false} edge style={{ marginBottom: 'var(--space-5)' }}>
-        <div className="row" style={{ gap: 'var(--space-4)', color: 'var(--ink-dim)' }}>
-          <ShieldCheck size={18} style={{ color: 'hsl(var(--c-primary))' }} />
-          <span style={{ fontSize: 13 }}>
-            Builtin hosts run in <b>simulated</b> mode until real endpoints are supplied. Edit any
-            host to point it at a live API — UPtool reads the response using the configured dot-path
-            mapping. New hosts can also be defined in{' '}
-            <code className="mono" style={{ color: 'hsl(var(--c-primary))' }}>
-              src/config/hosts.config.ts
-            </code>
-            .
+        <div className="row between wrap" style={{ gap: 'var(--space-4)' }}>
+          <div className="row" style={{ gap: 'var(--space-4)', color: 'var(--ink-dim)', flex: 1, minWidth: 280 }}>
+            <ShieldCheck size={18} style={{ color: 'hsl(var(--c-primary))', flex: 'none' }} />
+            <span style={{ fontSize: 13 }}>
+              Builtin hosts run in <b>simulated</b> mode. <b>Plugin</b> hosts are served by the
+              backend bridge (run <code className="mono" style={{ color: 'hsl(var(--c-primary))' }}>npm run server</code>{' '}
+              and set <code className="mono" style={{ color: 'hsl(var(--c-primary))' }}>PLUGINS_DIR</code>). Set per-host
+              credentials below or via server env vars.
+            </span>
+          </div>
+          <span className={`chip ${backendOnline ? 'ok' : 'warn'}`} style={{ fontSize: 12 }}>
+            {backendOnline ? <PlugZap size={13} /> : <Plug size={13} />}
+            {backendOnline ? 'BRIDGE ONLINE' : 'BRIDGE OFFLINE'}
           </span>
         </div>
       </Card>
@@ -76,9 +87,13 @@ export function HostsView() {
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div className="hc-name">{host.name}</div>
-                  <div className="row" style={{ gap: 6, marginTop: 4 }}>
+                  <div className="row wrap" style={{ gap: 6, marginTop: 4 }}>
                     <span className="chip">{host.region ?? 'CUSTOM'}</span>
-                    {host.simulated ? (
+                    {host.kind === 'plugin' ? (
+                      <span className="chip info">
+                        <Plug size={11} /> PLUGIN
+                      </span>
+                    ) : host.simulated ? (
                       <span className="chip warn">
                         <Cpu size={11} /> SIM
                       </span>
@@ -87,7 +102,17 @@ export function HostsView() {
                         <span className="dot" /> LIVE
                       </span>
                     )}
-                    {host.builtin && <span className="chip info">BUILTIN</span>}
+                    {host.kind === 'plugin' &&
+                      (credentials[host.id] && Object.keys(credentials[host.id]).length > 0 ? (
+                        <span className="chip ok">
+                          <KeyRound size={11} /> KEYED
+                        </span>
+                      ) : (
+                        <span className="chip warn">
+                          <KeyRound size={11} /> NO CREDS
+                        </span>
+                      ))}
+                    {host.builtin && host.kind !== 'plugin' && <span className="chip info">BUILTIN</span>}
                   </div>
                 </div>
                 <Toggle on={enabled} onChange={(v) => toggleHost(host.id, v)} />
@@ -109,15 +134,25 @@ export function HostsView() {
                   {host.maxFileSize ? formatBytes(host.maxFileSize) : '∞'}
                 </div>
                 <div className="s">
-                  <span>Response</span>
-                  {host.response?.type === 'text' ? 'TEXT' : `JSON·${host.response?.urlPath ?? 'url'}`}
+                  <span>Transport</span>
+                  {host.kind === 'plugin'
+                    ? `PLUGIN·${host.pluginId}`
+                    : host.response?.type === 'text'
+                      ? 'TEXT'
+                      : `JSON·${host.response?.urlPath ?? 'url'}`}
                 </div>
               </div>
 
               <div className="hc-foot">
-                <button className="btn sm ghost" onClick={() => setEditing(host)}>
-                  <Pencil size={14} /> Edit
-                </button>
+                {host.kind === 'plugin' ? (
+                  <button className="btn sm ghost" onClick={() => setCredHost(host)}>
+                    <KeyRound size={14} /> Credentials
+                  </button>
+                ) : (
+                  <button className="btn sm ghost" onClick={() => setEditing(host)}>
+                    <Pencil size={14} /> Edit
+                  </button>
+                )}
                 <button
                   className="btn sm ghost"
                   onClick={() => toggleHost(host.id, !enabled)}
@@ -170,6 +205,17 @@ export function HostsView() {
             onSave={(h) => {
               upsertHost(h);
               setEditing(null);
+            }}
+          />
+        )}
+        {credHost && (
+          <CredentialsModal
+            host={credHost}
+            initial={credentials[credHost.id] ?? {}}
+            onClose={() => setCredHost(null)}
+            onSave={(creds) => {
+              setCredentials(credHost.id, creds);
+              setCredHost(null);
             }}
           />
         )}

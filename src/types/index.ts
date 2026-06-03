@@ -34,13 +34,29 @@ export interface HostResponseMapping {
  * Declarative host definition. Everything required to talk to an upload host is
  * expressed as data here — the application never hard-codes a host.
  */
+/**
+ * How an upload is performed:
+ *  - 'direct'  : the browser uploads straight to `endpoint` (or simulated).
+ *  - 'plugin'  : the upload is routed through the backend plugin bridge, which
+ *                runs a server-side filehost plugin (e.g. Rapidgator). Required
+ *                for authenticated/multi-step host APIs that can't run in a
+ *                browser.
+ */
+export type HostKind = 'direct' | 'plugin';
+
 export interface HostConfig {
   id: string;
   name: string;
   description?: string;
   /** Short tag shown in the UI, e.g. "EU-WEST" or "QUANTUM". */
   region?: string;
-  /** Upload endpoint URL. */
+  /** Transport used for uploads. Defaults to 'direct'. */
+  kind?: HostKind;
+  /** For kind='plugin': the backend plugin id to route through. */
+  pluginId?: string;
+  /** For kind='plugin': credential field names the host expects. */
+  credentialFields?: string[];
+  /** Upload endpoint URL (direct hosts). */
   endpoint: string;
   method?: 'POST' | 'PUT';
   /** multipart form field name that carries the file. */

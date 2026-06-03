@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useStore } from '@/store/useStore';
 import { Backdrop } from '@/components/background/Backdrop';
@@ -27,7 +28,16 @@ export default function App() {
   const activeView = useStore((s) => s.activeView);
   const particlesEnabled = useStore((s) => s.settings.particlesEnabled);
   const scanlinesEnabled = useStore((s) => s.settings.scanlinesEnabled);
+  const refreshBackendHosts = useStore((s) => s.refreshBackendHosts);
   const ActiveView = VIEWS[activeView];
+
+  // Discover backend plugin hosts on startup and poll periodically so newly
+  // pushed plugins (and the bridge coming online) appear without a reload.
+  useEffect(() => {
+    void refreshBackendHosts();
+    const id = window.setInterval(() => void refreshBackendHosts(), 20000);
+    return () => window.clearInterval(id);
+  }, [refreshBackendHosts]);
 
   return (
     <div className={scanlinesEnabled ? 'scanlines' : undefined}>

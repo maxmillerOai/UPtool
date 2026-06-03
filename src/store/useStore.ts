@@ -15,12 +15,16 @@ import { mergeHosts, findHost } from '@/lib/hostRegistry';
 import { startUpload, validateFile } from '@/lib/uploader';
 import { uid } from '@/lib/id';
 import { sfx } from '@/lib/sound';
+import { fetchBackendHosts } from '@/lib/backend';
 import { fileRegistry, handleRegistry, disposeUpload } from './fileRegistry';
 
 interface StoreState {
   activeView: ViewId;
   uploads: UploadItem[];
   userHosts: HostConfig[];
+  backendHosts: HostConfig[];
+  credentials: Record<string, Record<string, string>>;
+  backendOnline: boolean;
   settings: Settings;
   notifications: AppNotification[];
   search: string;
@@ -28,6 +32,10 @@ interface StoreState {
   // ── selectors (computed via helpers below) ──
   setView: (view: ViewId) => void;
   setSearch: (q: string) => void;
+
+  // ── backend / plugins ──
+  refreshBackendHosts: () => Promise<void>;
+  setCredentials: (hostId: string, creds: Record<string, string>) => void;
 
   // ── uploads ──
   addFiles: (files: File[], hostId?: string) => void;
@@ -55,8 +63,8 @@ interface StoreState {
   clearNotifications: () => void;
 }
 
-function getMergedHosts(state: { userHosts: HostConfig[] }): HostConfig[] {
-  return mergeHosts(state.userHosts);
+function getMergedHosts(state: { userHosts: HostConfig[]; backendHosts: HostConfig[] }): HostConfig[] {
+  return mergeHosts([...state.backendHosts, ...state.userHosts]);
 }
 
 export const useStore = create<StoreState>()(
@@ -104,12 +112,18 @@ export const useStore = create<StoreState>()(
           progress: 0,
           loaded: 0,
         });
-        const handle = startUpload(file, host, {
-          onProgress: ({ loaded, percent, speed, eta }) => {
-            patch(id, { loaded, progress: percent, speed, eta, status: 'uploading' });
+        const credentials = host.kind === 'plugin' ? get().credentials[host.id] : undefined;
+        const handle = startUpload(
+          file,
+          host,
+          {
+            onProgress: ({ loaded, percent, speed, eta }) => {
+              patch(id, { loaded, progress: percent, speed, eta, status: 'uploading' });
+            },
+            onProcessing: () => patch(id, { status: 'processing', eta: 0 }),
           },
-          onProcessing: () => patch(id, { status: 'processing', progress: 100, eta: 0 }),
-        });
+          { credentials },
+        );
         handleRegistry.set(id, handle);
 
         handle.promise
@@ -166,12 +180,41 @@ export const useStore = create<StoreState>()(
         activeView: 'dashboard',
         uploads: [],
         userHosts: [],
+        backendHosts: [],
+        credentials: {},
+        backendOnline: false,
         settings: { ...DEFAULT_SETTINGS },
         notifications: [],
         search: '',
 
         setView: (view) => set({ activeView: view }),
         setSearch: (q) => set({ search: q }),
+
+        refreshBackendHosts: async () => {
+          try {
+            const list = await fetchBackendHosts();
+            const hosts: HostConfig[] = list.map((p) => ({
+              id: `plugin:${p.id}`,
+              name: p.label,
+              description: `Server-side plugin host (${p.source}).`,
+              region: 'PLUGIN',
+              kind: 'plugin',
+              pluginId: p.id,
+              credentialFields: p.credentialFields ?? undefined,
+              endpoint: `plugin://${p.id}`,
+              simulated: false,
+              enabled: true,
+              accent: '#34d399',
+              builtin: true,
+            }));
+            set({ backendHosts: hosts, backendOnline: true });
+          } catch {
+            set({ backendOnline: false });
+          }
+        },
+
+        setCredentials: (hostId, creds) =>
+          set((s) => ({ credentials: { ...s.credentials, [hostId]: creds } })),
 
         addFiles: (files, hostId) => {
           const state = get();
@@ -341,6 +384,7 @@ export const useStore = create<StoreState>()(
       // records so history survives, but in-flight transfers are not resurrected.
       partialize: (state) => ({
         userHosts: state.userHosts,
+        credentials: state.credentials,
         settings: state.settings,
         notifications: state.notifications.slice(0, 30),
         uploads: state.uploads
@@ -352,9 +396,9 @@ export const useStore = create<StoreState>()(
   ),
 );
 
-/** Derived merged host list (builtin + user). */
+/** Derived merged host list (builtin + backend plugins + user overrides). */
 export function useHosts(): HostConfig[] {
-  return useStore((s) => mergeHosts(s.userHosts));
+  return useStore((s) => mergeHosts([...s.backendHosts, ...s.userHosts]));
 }
 
 /** Derived aggregate statistics across all uploads (live + historical). */

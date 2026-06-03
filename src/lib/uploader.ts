@@ -1,5 +1,6 @@
 import type { HostConfig, UploadResult } from '@/types';
 import { getByPath } from './dotpath';
+import { API_BASE } from '@/config/app.config';
 
 export interface UploadProgress {
   loaded: number;
@@ -15,6 +16,11 @@ export interface UploadProgress {
 export interface UploadCallbacks {
   onProgress?: (p: UploadProgress) => void;
   onProcessing?: () => void;
+}
+
+export interface UploadOptions {
+  /** Credentials forwarded to a plugin host's backend upload. */
+  credentials?: Record<string, string>;
 }
 
 export interface UploadHandle {
@@ -204,15 +210,124 @@ function buildSimulatedResult(file: File, host: HostConfig): UploadResult {
 }
 
 /**
+ * Routes an upload through the backend plugin bridge. Phase 1 streams the file
+ * from the browser to the server (real XHR upload progress + abort). Phase 2
+ * tracks the server→host transfer via Server-Sent Events and resolves with the
+ * final link returned by the plugin.
+ */
+function pluginUpload(
+  file: File,
+  host: HostConfig,
+  cb: UploadCallbacks,
+  options: UploadOptions,
+): UploadHandle {
+  let xhr: XMLHttpRequest | null = null;
+  let evtSource: EventSource | null = null;
+  let aborted = false;
+
+  const promise = new Promise<UploadResult>((resolve, reject) => {
+    const pluginId = host.pluginId ?? host.id.replace(/^plugin:/, '');
+    const form = new FormData();
+    form.append('file', file, file.name);
+    form.append('credentials', JSON.stringify(options.credentials ?? {}));
+
+    xhr = new XMLHttpRequest();
+    xhr.open('POST', `${API_BASE}/api/upload/${encodeURIComponent(pluginId)}`, true);
+
+    const meter = createMeter(file.size);
+    xhr.upload.onprogress = (e) => {
+      if (!e.lengthComputable) return;
+      const { speed, eta } = meter(e.loaded);
+      // Phase 1 maps to 0..100 of the visible bar (browser → server).
+      cb.onProgress?.({
+        loaded: e.loaded,
+        total: e.total,
+        percent: (e.loaded / e.total) * 100,
+        speed,
+        eta,
+      });
+    };
+    xhr.upload.onload = () => cb.onProcessing?.();
+
+    xhr.onload = () => {
+      if (xhr!.status < 200 || xhr!.status >= 300) {
+        reject(new HostError(`Bridge responded ${xhr!.status}`));
+        return;
+      }
+      let jobId: string;
+      try {
+        jobId = JSON.parse(xhr!.responseText).jobId;
+      } catch {
+        reject(new HostError('Bridge returned malformed job response'));
+        return;
+      }
+      if (!jobId) {
+        reject(new HostError('Bridge did not return a job id'));
+        return;
+      }
+      cb.onProcessing?.();
+      // Phase 2: subscribe to host-side progress via SSE.
+      evtSource = new EventSource(`${API_BASE}/api/jobs/${jobId}/stream`);
+      evtSource.onmessage = (msg) => {
+        if (!msg.data) return;
+        let evt: any;
+        try {
+          evt = JSON.parse(msg.data);
+        } catch {
+          return;
+        }
+        if (evt.type === 'progress') {
+          cb.onProgress?.({
+            loaded: evt.loaded ?? 0,
+            total: evt.total ?? file.size,
+            percent: evt.percent ?? 0,
+            speed: 0,
+            eta: 0,
+          });
+        } else if (evt.type === 'done') {
+          evtSource?.close();
+          resolve({ url: evt.url, raw: evt.raw });
+        } else if (evt.type === 'error') {
+          evtSource?.close();
+          reject(new HostError(evt.message || 'Plugin upload failed'));
+        }
+      };
+      evtSource.onerror = () => {
+        if (aborted) return;
+        evtSource?.close();
+        reject(new HostError('Lost connection to upload bridge'));
+      };
+    };
+    xhr.onerror = () => reject(new HostError('Could not reach upload bridge'));
+    xhr.onabort = () => reject(new DOMException('Aborted', 'AbortError'));
+    xhr.send(form);
+  });
+
+  return {
+    promise,
+    abort: () => {
+      aborted = true;
+      evtSource?.close();
+      xhr?.abort();
+    },
+  };
+}
+
+/**
  * Starts an upload and returns a handle with an abort function and a promise
- * that resolves with the parsed result. Transparently routes to a simulated
- * transfer when the host is configured as `simulated`.
+ * that resolves with the parsed result. Routes to the backend plugin bridge for
+ * plugin hosts, a simulated transfer for simulated hosts, or a direct browser
+ * upload otherwise.
  */
 export function startUpload(
   file: File,
   host: HostConfig,
   cb: UploadCallbacks = {},
+  options: UploadOptions = {},
 ): UploadHandle {
+  if (host.kind === 'plugin') {
+    return pluginUpload(file, host, cb, options);
+  }
   if (host.simulated) {
     const signal = { aborted: false, timer: null as number | null };
     const promise = simulatedUpload(file, host, cb, signal);
