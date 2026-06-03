@@ -1,0 +1,62 @@
+/* ──────────────────────────────────────────────────────────────────────────
+   DESIGN TOKENS
+   Accent channels are HSL triplets so we can compose neon glows with alpha:
+   hsl(var(--c-primary) / 0.4). Theme presets override --c-primary/secondary/
+   tertiary at runtime (see ThemeController).
+   ────────────────────────────────────────────────────────────────────────── */
+:root {
+  /* accents (overridden by theme presets) */
+  --c-primary: 189 94% 55%;
+  --c-secondary: 231 80% 66%;
+  --c-tertiary: 291 90% 65%;
+
+  /* deep-space surfaces */
+  --bg-0: #04060f;
+  --bg-1: #070b18;
+  --bg-2: #0a1022;
+  --panel: 220 60% 10%;
+  --panel-2: 222 55% 14%;
+
+  --ink: #eaf2ff;
+  --ink-dim: #9fb2d8;
+  --ink-faint: #5e6f96;
+  --line: 210 60% 70%;
+
+  --ok: 152 70% 50%;
+  --warn: 38 96% 56%;
+  --err: 352 90% 62%;
+
+  --radius-sm: 8px;
+  --radius: 14px;
+  --radius-lg: 22px;
+  --radius-xl: 30px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+
+  --font-display: 'Orbitron', system-ui, sans-serif;
+  --font-ui: 'Rajdhani', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  --glass-blur: 18px;
+  --glass-bg: linear-gradient(
+    150deg,
+    hsl(var(--panel-2) / 0.75),
+    hsl(var(--panel) / 0.5)
+  );
+  --glass-border: hsl(var(--line) / 0.14);
+  --shadow-glow: 0 0 0 1px hsl(var(--c-primary) / 0.16),
+    0 18px 50px -12px hsl(var(--c-primary) / 0.28),
+    inset 0 1px 0 hsl(0 0% 100% / 0.05);
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+
+  --header-h: 72px;
+  --rail-w: 248px;
+}
