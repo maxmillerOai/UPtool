@@ -94,13 +94,18 @@ export const imageHostOptions: ImageHostOption[] = [
 
 export const thumbnailSize = "300x300";
 
+/**
+ * `iconUrl` points at a brand icon in `public/hosts/`. Drop the provided
+ * icons there using these exact filenames and they render automatically;
+ * until then the UI falls back to the 2-letter `code` badge.
+ */
 export const fileHosts: FileHost[] = [
-  { id: "k2s", code: "K2S", name: "Keep2Share", selected: true },
-  { id: "fileboom", code: "FB", name: "FileBoom", selected: true },
-  { id: "filejoker", code: "FJ", name: "FileJoker", selected: true },
-  { id: "rapidgator", code: "RG", name: "Rapidgator", selected: true },
-  { id: "imagetwist", code: "IT", name: "ImageTwist", selected: true },
-  { id: "pixhost", code: "PX", name: "PixHost", selected: false },
+  { id: "k2s", code: "K2S", name: "Keep2Share", selected: true, iconUrl: "/hosts/keep2share.png" },
+  { id: "fileboom", code: "FB", name: "FileBoom", selected: true, iconUrl: "/hosts/fileboom.png" },
+  { id: "filejoker", code: "FJ", name: "FileJoker", selected: true, iconUrl: "/hosts/filejoker.png" },
+  { id: "rapidgator", code: "RG", name: "Rapidgator", selected: true, iconUrl: "/hosts/rapidgator.png" },
+  { id: "imagetwist", code: "IT", name: "ImageTwist", selected: true, iconUrl: "/hosts/imagetwist.png" },
+  { id: "pixhost", code: "PX", name: "PixHost", selected: false, iconUrl: "/hosts/pixhost.png" },
 ];
 
 export const progressTasks: ProgressTask[] = [
@@ -114,11 +119,12 @@ export const progressTasks: ProgressTask[] = [
     subtitle: "imagetwist",
     percent: 90,
     state: "uploading",
+    iconUrl: "/hosts/imagetwist.png",
   },
-  { id: "k2s", icon: "cloud", title: "Keep2Share", percent: 65, state: "uploading" },
-  { id: "fileboom", icon: "cloud", badge: "FB", title: "FileBoom", percent: 50, state: "uploading" },
-  { id: "filejoker", icon: "cloud", badge: "FJ", title: "FileJoker", percent: 40, state: "uploading" },
-  { id: "rapidgator", icon: "cloud", badge: "RG", title: "Rapidgator", percent: 0, state: "waiting" },
+  { id: "k2s", icon: "cloud", title: "Keep2Share", percent: 65, state: "uploading", iconUrl: "/hosts/keep2share.png" },
+  { id: "fileboom", icon: "cloud", badge: "FB", title: "FileBoom", percent: 50, state: "uploading", iconUrl: "/hosts/fileboom.png" },
+  { id: "filejoker", icon: "cloud", badge: "FJ", title: "FileJoker", percent: 40, state: "uploading", iconUrl: "/hosts/filejoker.png" },
+  { id: "rapidgator", icon: "cloud", badge: "RG", title: "Rapidgator", percent: 0, state: "waiting", iconUrl: "/hosts/rapidgator.png" },
 ];
 
 export const overallProgress = {

@@ -28,6 +28,8 @@ export interface ProgressTask {
   icon: ProgressIcon;
   /** Optional 2-letter host label rendered as a badge instead of an icon. */
   badge?: string;
+  /** Optional brand icon URL; takes precedence over `badge`/`icon` when set. */
+  iconUrl?: string;
   title: string;
   subtitle?: string;
   percent: number;
@@ -46,6 +48,11 @@ export interface FileHost {
   code: string;
   name: string;
   selected: boolean;
+  /**
+   * Optional brand icon served from `public/hosts/`. When the image is
+   * missing or fails to load, the UI falls back to the 2-letter `code` badge.
+   */
+  iconUrl?: string;
 }
 
 export interface ImageHostOption {

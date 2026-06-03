@@ -1,5 +1,6 @@
 import { Check } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { HostIcon } from "@/components/HostIcon";
 import { cn } from "@/lib/utils";
 import type { FileHost } from "@/types";
 
@@ -39,14 +40,13 @@ export function FileHostSelector({ hosts, onToggle }: FileHostSelectorProps) {
               >
                 {host.selected && <Check className="h-3.5 w-3.5" strokeWidth={3} />}
               </span>
-              <span
-                className={cn(
-                  "flex h-7 w-7 shrink-0 items-center justify-center rounded text-[11px] font-bold",
-                  hostBadgeColor(host.code)
-                )}
-              >
-                {host.code}
-              </span>
+              <HostIcon
+                iconUrl={host.iconUrl}
+                code={host.code}
+                name={host.name}
+                className="h-7 w-7 rounded-md"
+                fallbackClassName={cn("rounded-md", hostBadgeColor(host.code))}
+              />
               <span className="truncate text-sm font-medium text-foreground/90">
                 {host.name}
               </span>
