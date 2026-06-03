@@ -1,0 +1,37 @@
+{
+  "defaultHosts": {
+    "image": "imagetwist",
+    "imageBackup": "pixhost",
+    "files": ["keep2share", "fileboom", "filejoker"]
+  },
+  "credentials": {
+    "keep2share": {
+      "accessToken": ""
+    },
+    "rapidgator": {
+      "username": "",
+      "password": ""
+    },
+    "imagetwist": {
+      "username": "",
+      "password": ""
+    },
+    "filejoker": {
+      "email": "",
+      "password": ""
+    }
+  },
+  "tools": {
+    "mtn": "vendor/tools/MTN/mtn.exe",
+    "mediainfo": "vendor/tools/MediaInfo/MediaInfo.exe"
+  },
+  "mtn": {
+    "columns": 6,
+    "rows": 3,
+    "width": 1024,
+    "quality": 90,
+    "backgroundColor": "000000",
+    "minShotHeight": 0,
+    "thumbnailSuffix": "_thumb.jpg"
+  }
+}
