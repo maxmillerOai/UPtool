@@ -2,3 +2,14 @@ node_modules
 dist
 *.tsbuildinfo
 .DS_Store
+
+# Backend runtime artifacts
+backend/node_modules
+backend/incoming/
+backend/settings.json
+backend/config.json
+backend/*.local.*
+
+# Local dev-only helpers
+.dev-*.mjs
+backend/.tools-local/
